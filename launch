@@ -1,0 +1,137 @@
+#!/bin/bash
+
+if [ -z $1 ]; then
+    echo launch switches to a window based on pre-set criteria.
+    echo If that window does not exist, it launches the application
+    echo that creates the missing window.
+    echo
+    echo Edit the launch shell script to add or change applications.
+    echo The included examples demonstrate the full range of 
+    echo functionality available, including the use of xmacroplay to
+    echo send keystrokes to your application.
+    echo
+    echo EXAMPLE
+    echo "'launch emacs' switches to or launches emacs."
+    echo
+    echo USE
+    echo "I use xbindkeys (you can set it up with xbindkeys-config) to"
+    echo "execute 'launch foo' when I hit certain keys.  For example,"
+    echo Ctrl-Alt-b switches to my browser.
+    echo 
+    echo DEPENDENCIES
+    echo launch needs wmctrl to switch windows and if you want to send
+    echo "keystrokes to an application, you'll need xmacroplay."
+    echo
+    echo launch depends on osd_cat to display debug messages, but if 
+    echo "osd_cat isn't available, don't worry.  launch just stays"
+    echo silent.  You can make launch chatty or silent by setting
+    echo the debug variable to 0 or 1 in the script file.
+    echo
+    echo You can set up devilspie to place and size windows or, as I
+    echo have done with emacs, set the AFTER variable to do thosethings 
+    echo with wmctrl after creating or switching to a window.
+    echo
+    echo COPYING
+    echo "launch is copyright 2011 James Vasile <james@jamesvasile.org>."
+    echo I dedicate this work to the public domain and reserve no rights 
+    echo with respect to it.
+    exit
+fi
+
+DEBUG=1
+
+## use xbindkeys-config to bind hotkeys to 'launch foo'
+
+## We can do unlisted items freeform from the commnadline
+APP=$1
+shift
+SWITCH="$@"
+
+## Functions!
+function display() {
+    if [ $DEBUG -ne 0 ]; then
+	echo $@ | osd_cat -p middle -f -*-helvetica-medium-r-\*-\*-\*-180-\*-\*-\*-\*-\*-\* &
+    fi
+}
+
+function notmuchgo {
+    ## Wait half a second and then send F6 to the focused app (which should be emacs)
+    sleep 0.5
+    echo KeyStrPress F6 KeyStrRelease F6 | xmacroplay $DISPLAY
+}
+
+## Specific apps
+if [ "$APP" = "choqok" ]; then
+    APP='/usr/bin/choqok'
+    SWITCH='wmctrl -x -a /usr/bin/choqok'
+fi
+
+if [ "$APP" = "gwibber" ]; then
+    APP='/usr/bin/gwibber'
+    SWITCH='wmctrl -x -a /usr/bin/gwibber'
+fi
+
+if [ "$APP" = "email" ]; then
+    APP='/usr/bin/emacs23'
+    SWITCH='wmctrl -x -a emacs23'
+    AFTER=notmuchgo
+fi
+
+if [ "$APP" = "emacs" ]; then
+    APP='/usr/bin/emacs23'
+    SWITCH='wmctrl -x -a emacs23'
+    AFTER="wmctrl -x -r Emacs -b add,maximized_vert,maximized_horz"
+fi
+
+if [ "$APP" = "irssi" ]; then
+    APP='/usr/bin/irssi'
+    RUN="urxvt -name 'irssi' +sb -bg black -fg white -e /usr/bin/irssi &"
+    SWITCH='wmctrl -x -a irssi'
+fi
+
+if [ "$APP" = "iceweasel" ]; then
+    APP='/usr/lib/iceweasel/firefox-bin'
+    SWITCH='wmctrl -a iceweasel'
+fi
+
+if [ "$APP" = "xterm" ]; then
+    APP='/usr/bin/xterm'
+    PARAMS='-xrm xterm*allowSendEvents: True +ls +mb +vb -bg black -fg green -cr white -ls -geometry 80x25+0+0'
+    SWITCH='wmctrl -x -a xterm'
+fi
+
+
+## debugging
+if [ $DEBUG -ne 0 ]; then
+    echo APP: $APP
+    echo SWITCH: $SWITCH
+    echo PARAMS: $PARAMS
+    echo RUN: $RUN
+    echo AFTER: $AFTER
+fi
+
+## Check for app, switch to it or start it
+if ps ax | grep -v grep | grep "$APP" | grep -v $$ > /dev/null
+then
+    if [ $DEBUG -ne 0 ]; then
+	echo Switching focus
+    fi
+    $SWITCH
+else
+    echo Starting app
+    if [ -n "$RUN" ]; then
+	if [ $DEBUG -ne 0 ]; then
+	    display $RUN
+	fi
+	setsid $RUN &
+    else
+	if [ $DEBUG -ne 0 ]; then
+	    display $APP $PARAMS
+	fi
+	setsid $APP $PARAMS &
+    fi
+fi
+
+if [ -n "$AFTER" ]; then
+    $AFTER
+fi
